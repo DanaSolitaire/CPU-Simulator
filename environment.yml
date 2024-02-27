@@ -1,0 +1,8 @@
+name: opsys_proj
+channels:
+  - defaults
+dependencies:
+  - python=3.9.18
+  - pip:
+      - numpy==1.26.4
+prefix: opsys_proj
