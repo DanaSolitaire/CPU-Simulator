@@ -46,12 +46,24 @@ def processes(n, n_cpu, seed, lamb, ceil):
         for burst in range(bursts):
             
             cpu_burst_time = math.ceil(next_exp(rand, lamb))
-            io_burst_time = math.ceil(next_exp(rand, lamb)*10)
             
+            while cpu_burst_time > ceil:
+                cpu_burst_time = math.ceil(next_exp(rand, lamb))
+                
+            if burst < bursts-1:
+                io_burst_time = math.ceil(next_exp(rand, lamb))
+                
+                while io_burst_time > ceil:
+                    io_burst_time = math.ceil(next_exp(rand, lamb))
+                    
+                io_burst_time *= 10
+                
             if process >= (n-n_cpu):
+                
                 cpu_burst_time *= 4
-                io_burst_time /= 8
-            if burst == bursts-1:
+                io_burst_time = io_burst_time/8
+                
+            if burst >= bursts-1:
                 terminal_out(round(cpu_burst_time))
             else:
                 terminal_out(round(cpu_burst_time),round(io_burst_time))
