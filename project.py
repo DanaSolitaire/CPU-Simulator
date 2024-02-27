@@ -15,7 +15,7 @@ class Rand(object):
         return self.next() / 2**48
 
 def next_exp(rand,lamb):
-    x = math.log(1-rand.drand())/(-lamb)
+    x = -math.log(rand.drand())/lamb
     return x
 def processes(n, n_cpu, seed, lamb, ceil):
     """_summary_
@@ -27,7 +27,7 @@ def processes(n, n_cpu, seed, lamb, ceil):
         lamb (float): rate parameter of exponential distribution
         ceil (int): upper bound for valid pseudo-random numbers
     """
-    rand = Rand(seed)
+    rand = Rand(0)
     rand.srand(seed)
     alph='ABCDEFGHIJKLMNOPQRSTTUVQXYZ'
     
@@ -52,9 +52,9 @@ def processes(n, n_cpu, seed, lamb, ceil):
                 cpu_burst_time *= 4
                 io_burst_time /= 8
             if burst == bursts-1:
-                terminal_out(cpu_burst_time)
+                terminal_out(round(cpu_burst_time))
             else:
-                terminal_out(cpu_burst_time,io_burst_time)
+                terminal_out(round(cpu_burst_time),round(io_burst_time))
     
 def terminal_out(cpu_burst, io_burst=None):
     if not io_burst:
