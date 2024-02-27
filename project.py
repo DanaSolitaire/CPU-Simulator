@@ -17,6 +17,7 @@ class Rand(object):
 def next_exp(rand,lamb):
     x = -math.log(rand.drand())/lamb
     return x
+
 def processes(n, n_cpu, seed, lamb, ceil):
     """_summary_
 
@@ -75,14 +76,20 @@ def terminal_out(cpu_burst, io_burst=None):
         print(f"--> CPU burst {cpu_burst}ms --> I/O burst {io_burst}ms")
 
 if __name__ == '__main__':
-    
-    assert len(sys.argv) == 6, "Incorrect number of arguments"
-    
-    n = int(sys.argv[1])
-    n_cpu = int(sys.argv[2])
-    seed = int(sys.argv[3])
-    lamb = float(sys.argv[4])
-    ceil = int(sys.argv[5])
+    try:
+        assert len(sys.argv) == 6
+    except Exception as e:
+        print("ERROR: Incorrect number of arguments", e, file=sys.stderr)
+        sys.exit(1)
+    try: 
+        n = int(sys.argv[1])
+        n_cpu = int(sys.argv[2])
+        seed = int(sys.argv[3])
+        lamb = float(sys.argv[4])
+        ceil = int(sys.argv[5])
+    except ValueError as e:
+        print("ERROR:", e, file=sys.stderr)
+        sys.exit(1)
     processes(n,n_cpu,seed,lamb,ceil)
-    
+            
     
