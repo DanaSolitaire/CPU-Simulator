@@ -41,9 +41,10 @@ def processes(n, n_cpu, seed, lamb, ceil):
             
         arrival_time = math.floor(num)
         bursts = math.ceil(rand.drand()*64)
-        
-        print(f"I/O-bound process {alph[process]}: arrival time {arrival_time}ms; {bursts} CPU bursts:")
-        
+        if process < (n-n_cpu):
+            print(f"I/O-bound process {alph[process]}: arrival time {arrival_time}ms; {bursts} CPU bursts:")
+        else:
+            print(f"CPU-bound process {alph[process]}: arrival time {arrival_time}ms; {bursts} CPU bursts:")            
         for burst in range(bursts):
             
             cpu_burst_time = math.ceil(next_exp(rand, lamb))
@@ -65,9 +66,9 @@ def processes(n, n_cpu, seed, lamb, ceil):
                 io_burst_time = io_burst_time/8
                 
             if burst >= bursts-1:
-                terminal_out(round(cpu_burst_time))
+                terminal_out(math.floor(cpu_burst_time))
             else:
-                terminal_out(round(cpu_burst_time),round(io_burst_time))
+                terminal_out(math.floor(cpu_burst_time),math.floor(io_burst_time))
     
 def terminal_out(cpu_burst, io_burst=None):
     if not io_burst:
@@ -90,6 +91,10 @@ if __name__ == '__main__':
     except ValueError as e:
         print("ERROR:", e, file=sys.stderr)
         sys.exit(1)
+    if n_cpu == 1:
+        print(f"<<< PROJECT PART I -- process set (n={n}) with {n_cpu} CPU-bound process >>>")
+    else:
+        print(f"<<< PROJECT PART I -- process set (n={n}) with {n_cpu} CPU-bound processes >>>")
     processes(n,n_cpu,seed,lamb,ceil)
             
     
