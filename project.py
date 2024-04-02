@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import math
+import copy
 
 class Process:
     def __init__(self, process_id, arrival_time, burst_time, bursts, ios, cpu, lamb):
@@ -115,7 +116,7 @@ def calculate_tau(alpha, burst_time, prev_tau):
 def cpu_utilization(processes, total_time):
     if total_time == 0:
         return 0
-    return (sum(sum(p.bursts) for p in processes)/total_time)*100
+    return math.ceil((sum(sum(p.bursts) for p in processes)/total_time)*100000)/1000
     
 def avg_burst(processes):
     if sum(len(p.bursts) for p in processes) == 0:
@@ -126,11 +127,32 @@ def avg(ls):
     if len(ls)==0:
         return 0
     return math.ceil((sum(ls)/len(ls))*1000)/1000
+
+def simout_write(alg,processes_copy,time,cpu_turnaround,io_turnaround,cpu_wait,io_wait,cpu_context,io_context,cpu_preemp,io_preemp):
+    
+    cpu_util = cpu_utilization(processes_copy, time)
+    avg_burst_time_io = avg_burst(processes_copy[n_cpu:])
+    avg_burst_time_cpu = avg_burst(processes_copy[:n_cpu])
+    avg_burst_time = avg_burst(processes_copy)
+    avg_cpu_turn = avg(cpu_turnaround)
+    avg_io_turn = avg(io_turnaround)
+    avg_turnaround = avg(cpu_turnaround+io_turnaround)
+    avg_cpu_wait = avg(cpu_wait)
+    avg_io_wait = avg(io_wait)
+    avg_wait = avg(cpu_wait+io_wait)
+    
+    simout.write(f"\nAlgorithm {alg}\n")
+    simout.write(f"-- CPU utilization: {cpu_util:.3f}%\n")
+    simout.write(f"-- average CPU burst time: {avg_burst_time:.3f} ms ({avg_burst_time_cpu:.3f} ms/{avg_burst_time_io:.3f} ms)\n")
+    simout.write(f"-- average wait time: {math.ceil(avg_wait*1000)/1000:.3f} ms ({avg_cpu_wait} ms/{avg_io_wait} ms)\n")
+    simout.write(f"-- average turnaround time: {avg_turnaround:.3f} ms ({avg_cpu_turn} ms/{avg_io_turn} ms)\n")
+    simout.write(f"-- number of context switches: {cpu_context+io_context} ({cpu_context}/{io_context})\n")
+    simout.write(f"-- number of preemptions: {cpu_preemp+io_preemp} ({cpu_preemp}/{io_preemp})\n")
     
 def shortest_job_first(processes):
     
-    processes = sorted(processes, key=lambda x: x.arrival_time)
-    processes_copy = processes.copy()
+    processes_copy = copy.deepcopy(processes)
+    processes_copy = sorted(processes_copy, key=lambda x: x.arrival_time)
     
     io_context = 0
     cpu_context = 0
@@ -148,9 +170,9 @@ def shortest_job_first(processes):
     print(f"time 0ms: Simulator started for SJF ",end="")
     print_queue(queue)
     
-    while len(processes) != 0:
+    while len(processes_copy) != 0:
         
-        for process in processes:
+        for process in processes_copy:
             
             if process.arrival_time <= time and process not in queue and process not in running:
                 
@@ -201,7 +223,7 @@ def shortest_job_first(processes):
                     print(f"time {time}ms: Process {running[0].process_id} terminated ",end="")
                     print_queue(queue)
                     
-                    processes.remove(running[0])
+                    processes_copy.remove(running[0])
                     old = running.pop(0)
                     
                     time+=int(t_cs/2)
@@ -241,33 +263,13 @@ def shortest_job_first(processes):
                     
     print(f"time {time}ms: Simulator ended for SJF ", end="")
     print_queue(queue)
-    
-    cpu_util = cpu_utilization(processes_copy, time)
-    print(f"CPU utilization: {cpu_util:.3f}")
-    
-    avg_burst_time_io = avg_burst(processes_copy[n_cpu:])
-    avg_burst_time_cpu = avg_burst(processes_copy[:n_cpu])
-    avg_burst_time = avg_burst(processes_copy)
-    print(f"Average burst time: {avg_burst_time:.3f} ({avg_burst_time_cpu:.3f}/{avg_burst_time_io:.3f})")
-    
-    avg_cpu_turn = avg(cpu_turnaround)
-    avg_io_turn = avg(io_turnaround)
-    avg_turnaround = avg(cpu_turnaround+io_turnaround)
-    print(f"Average turnaround time: {avg_turnaround:.3f} ({avg_cpu_turn}/{avg_io_turn})")
-    
-    avg_cpu_wait = avg(cpu_wait)
-    avg_io_wait = avg(io_wait)
-    avg_wait = avg(cpu_wait+io_wait)
-    print(f"Average wait time: {math.ceil(avg_wait*1000)/1000:.3f} ({avg_cpu_wait}/{avg_io_wait})")
-    
-    print(f"Number of context switches: {cpu_context+io_context} ({cpu_context}/{io_context})")
-    
-    print("Number of preemptions: 0 (0/0)")
+
+    simout_write("SJF",processes,time,cpu_turnaround,io_turnaround,cpu_wait,io_wait,cpu_context,io_context,0,0)    
     
 def round_robin(processes):
     
-    processes = sorted(processes, key=lambda x: x.arrival_time)
-    processes_copy = processes.copy()
+    processes_copy = copy.deepcopy(processes)
+    processes_copy = sorted(processes_copy, key=lambda x: x.arrival_time)
     
     cpu_preemp = 0
     io_preemp = 0
@@ -288,9 +290,9 @@ def round_robin(processes):
     print(f"time 0ms: Simulator started for RR ",end="")
     print_queue(queue)
     
-    while len(processes) != 0:
+    while len(processes_copy) != 0:
         
-        for process in processes:
+        for process in processes_copy:
             
             if process.arrival_time <= time and process not in queue and process not in running:
                 
@@ -379,7 +381,7 @@ def round_robin(processes):
                     print(f"time {time}ms: Process {running[0].process_id} terminated ",end="")
                     print_queue(queue)
                     
-                    processes.remove(running[0])
+                    processes_copy.remove(running[0])
                     old = running.pop(0)
                     
                     time+=int(t_cs/2)
@@ -415,34 +417,12 @@ def round_robin(processes):
                     io_turnaround.append(time-old.arrival_queue)
                     io_wait.append((io_turnaround[-1]-t_cs)-old.bursts[old.current_burst-1])
                     io_context += 1
-        
+    
     print(f"time {time}ms: Simulator ended for RR ", end="")
     print_queue(queue)
     
-    cpu_util = cpu_utilization(processes_copy,time)
-    print(f"CPU utilization: {cpu_util:.3f}")
-    
-    avg_burst_time_io = avg_burst(processes_copy[n_cpu:])
-    avg_burst_time_cpu = avg_burst(processes_copy[:n_cpu])
-    avg_burst_time = avg_burst(processes_copy)
-    print(f"Average burst time: {avg_burst_time:.3f} ({avg_burst_time_cpu:.3f}/{avg_burst_time_io:.3f})")
-    
-    avg_cpu_turn = avg(cpu_turnaround)
-    avg_io_turn = avg(io_turnaround)
-    avg_turnaround = avg(cpu_turnaround+io_turnaround)
-    print(f"Average turnaround time: {avg_turnaround:.3f} ({avg_cpu_turn}/{avg_io_turn})")
-    
-    avg_cpu_wait = avg(cpu_wait)
-    avg_io_wait = avg(io_wait)
-    avg_wait = avg(cpu_wait+io_wait)
-    print(f"Average wait time: {math.ceil(avg_wait*1000)/1000:.3f} ({avg_cpu_wait}/{avg_io_wait})")
-    
-    print(f"Number of context switches: {cpu_context+io_context} ({cpu_context}/{io_context})")
-    
-    print(f"Number of preemptions: {cpu_preemp+io_preemp} ({cpu_preemp}/{io_preemp})")
+    simout_write("RR",processes,time,cpu_turnaround,io_turnaround,cpu_wait,io_wait,cpu_context,io_context,cpu_preemp,io_preemp)
 
-def tau(burst, avg_burst, alpha):
-    return alpha * burst + (1 - alpha) * avg_burst
 
 if __name__ == '__main__':
     try:
@@ -469,8 +449,9 @@ if __name__ == '__main__':
         print(f"<<< PROJECT PART I -- process set (n={n}) with {n_cpu} CPU-bound processes >>>")
         
     procs = processes(n,n_cpu,seed,lamb,ceil)
-    #shortest_job_first(procs)
+    
+    simout = open("simout.txt", "w")
+    
+    shortest_job_first(procs)
+    
     round_robin(procs)
-    
-            
-    
