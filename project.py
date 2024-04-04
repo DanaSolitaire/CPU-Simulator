@@ -148,7 +148,106 @@ def simout_write(alg,processes_copy,time,cpu_turnaround,io_turnaround,cpu_wait,i
     simout.write(f"-- average turnaround time: {avg_turnaround:.3f} ms ({avg_cpu_turn} ms/{avg_io_turn} ms)\n")
     simout.write(f"-- number of context switches: {cpu_context+io_context} ({cpu_context}/{io_context})\n")
     simout.write(f"-- number of preemptions: {cpu_preemp+io_preemp} ({cpu_preemp}/{io_preemp})\n")
+
+def first_come_first_serve(processes):
+    processes_copy = copy.deepcopy(processes)
+    processes_copy = sorted(processes_copy, key=lambda x: x.arrival_time)
     
+    io_context = 0
+    cpu_context = 0
+    
+    cpu_turnaround = []
+    io_turnaround = []
+    
+    cpu_wait = []
+    io_wait = []
+    
+    queue = []
+    time = 0
+    running = []
+    
+    print(f"time 0ms: Simulator started for FCFS ",end="")
+    print_queue(queue)
+    
+    #While there are still processes to run
+    while len(processes_copy) != 0:
+        for process in processes_copy:
+            
+            if process.arrival_time <= time and process not in queue and process not in running:
+                
+                if process.blocked == 0:
+                    
+                    queue.append(process)
+                    
+                    time = int(process.arrival_time)
+                    
+                    print(f"time {time}ms: Process {process.process_id} arrived; added to ready queue ",end="")
+                    print_queue(queue)
+                    
+                    process.arrival_queue = time
+                    
+                if process.blocked != 0 and process.blocked <= time:
+                    
+                    queue.append(process)
+                    
+                    time = int(process.blocked)
+                    
+                    print(f"time {time}ms: Process {process.process_id} completed I/O; added to ready queue ",end="")
+                    
+                    print(f"queue is not blocked {queue}")
+                    print_queue(queue)
+                    
+                    process.arrival_queue = time
+                    
+        time += 1
+        
+        #If no process is running and the queue is not empty
+        if len(running) == 0 and len(queue) != 0:
+            time -= 1
+            time += int(t_cs/2)
+
+            queue[0].burst_start = time
+            running.append(queue.pop(0))
+
+            print(f"time {time}ms: Process {running[0].process_id} started using the CPU for {running[0].bursts[running[0].current_burst]}ms burst ",end="")
+        
+        #If a process is running
+        if len(running)!=0:
+            #If the process has completed its burst
+            if time >= (running[0].burst_start+running[0].bursts[running[0].current_burst]):
+                time = int(running[0].burst_start+running[0].bursts[running[0].current_burst])
+                running[0].current_burst += 1
+                print(f"time {time}ms: Process {running[0].process_id} completed a CPU burst; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
+                print_queue(queue)    
+                print(f"time {time}ms: Process {running[0].process_id} switching out of CPU; blocking on I/O until time {int(running[0].ios[running[0].current_burst-1]+time+(t_cs/2))}ms ",end="")
+                print_queue(queue)
+
+                old = running.pop(0)
+                time += int(t_cs/2)
+
+                if old.cpu:
+                    cpu_turnaround.append(time-old.arrival_queue)
+                    cpu_wait.append((cpu_turnaround[-1]-t_cs)-old.bursts[old.current_burst-1])
+                    cpu_context += 1
+  
+                else:
+                    io_turnaround.append(time-old.arrival_queue)
+                    io_wait.append((io_turnaround[-1]-t_cs)-old.bursts[old.current_burst-1])
+                    io_context += 1
+                io_wait
+                break
+
+                if running[0].current_burst >= running[0].burst_time:
+                    print(f"time {time}ms: Process {running[0].process_id} terminated ",end="")
+                    print_queue(queue)
+                    processes_copy.remove(running[0])
+
+            #else:
+            # print(f"time {time}ms: Process {running[0].process_id} completed a CPU burst; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
+    print(f"time {time}ms: Simulator ended for FCFS ", end="")
+    print_queue(queue)
+#def shortest_remaining_time(processes):
+
 def shortest_job_first(processes):
     
     processes_copy = copy.deepcopy(processes)
@@ -200,6 +299,7 @@ def shortest_job_first(processes):
                     
         time += 1
         
+        #If no process is running and the queue is not empty
         if len(running) == 0 and len(queue) != 0:
             
             time -= 1
@@ -210,7 +310,8 @@ def shortest_job_first(processes):
             
             print(f"time {time}ms: Process {running[0].process_id} (tau {running[0].tau}ms) started using the CPU for {running[0].bursts[running[0].current_burst]}ms burst ",end="")
             print_queue(queue)
-            
+        
+        #If a process is running
         if len(running)!=0:
             
             if time >= (running[0].burst_start+running[0].bursts[running[0].current_burst]):
@@ -452,6 +553,6 @@ if __name__ == '__main__':
     
     simout = open("simout.txt", "w")
     
-    shortest_job_first(procs)
-    
-    round_robin(procs)
+    #shortest_job_first(procs)
+    first_come_first_serve(procs)
+    #round_robin(procs)
