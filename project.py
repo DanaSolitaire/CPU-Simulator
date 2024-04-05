@@ -207,18 +207,8 @@ def first_come_first_serve(processes):
         print(process.arrival_queue)
         print("\n")
    '''
-    
-    io_context = 0
-    cpu_context = 0
-    
-    cpu_turnaround = []
-    io_turnaround = []
-
     io_blocked = []
-
     start_times = []
-
-    
     queue = []
     time = 0
     running = []
@@ -265,23 +255,12 @@ def first_come_first_serve(processes):
         #If a process is running
         if len(running)!=0:
             
-
             if time == (running[0].burst_start+running[0].cpu_bursts[running[0].current_burst]):
                 running[0].current_burst += 1
                 print(f"time {time}ms: Process {running[0].process_id} completed a CPU burst; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
                 print_queue(queue)
                 print("\n")
-
-                if len(queue) == 0:
-
-                    running[0].burst_start = time
-                    running.append(queue.pop(0))
-                    running[0].cpu = True
-                    running[0].blocked = int(running[0].io_bursts[running[0].current_burst]+time+(t_cs/2))
-                    start_times.append([time,running[0]])
-                    print(f"time {time}ms: Process {running[0].process_id} started using the CPU for {running[0].cpu_bursts[running[0].current_burst]}ms burst ",end="")
-                    print_queue(queue)
-                    print("\n")
+                
 
                 print(f"time {time}ms: Process {running[0].process_id} switching out of CPU; blocking on I/O until time {int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))}ms ",end="")
                 io_blocked.append([running[0],int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))])
@@ -295,6 +274,7 @@ def first_come_first_serve(processes):
                     print("\n")
                     processes_copy.remove(running[0])
 
+
                 old = running.pop(0)
                 time += int(t_cs/2)
             for process in io_blocked:
@@ -304,24 +284,20 @@ def first_come_first_serve(processes):
                     print_queue(queue)
                     print("\n")
                     io_blocked.remove(process)
-
-                '''
-                if old.cpu:
-                    cpu_turnaround.append(time-old.arrival_queue)
-                    cpu_wait.append((cpu_turnaround[-1]-t_cs)-old.cpu_bursts[old.current_burst-1])
-                    cpu_context += 1
-                    print(f"cpu_wait {cpu_wait}\n")
-
-                else:
-                    io_turnaround.append(time-old.arrival_queue)
-                    io_wait.append((io_turnaround[-1]-t_cs)-old.cpu_bursts[old.current_burst-1])
-                    io_context += 1
-                    print(f"io_wait {io_wait}\n")
-                    print(io_wait)
-                '''
-
-                
-
+            '''        
+            if len(queue) == 0:
+                # and running[0].current_burst < len(running[0].cpu_bursts):
+                        #time -= 1
+                        #time += int(t_cs/2)
+                        #queue.append(running[0])
+                        running[0].burst_start = time
+                        running[0].cpu = True
+                        running[0].blocked = int(running[0].io_bursts[running[0].current_burst]+time+(t_cs/2))
+                        start_times.append([time,running[0]])
+                        print(f"time {time}ms: Process {running[0].process_id} started using the CPU for {running[0].cpu_bursts[running[0].current_burst]}ms burst ",end="")
+                        print_queue(queue)
+                        print("\n")
+            '''
             #else:
             # print(f"time {time}ms: Process {running[0].process_id} completed a CPU burst; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
     
@@ -330,74 +306,9 @@ def first_come_first_serve(processes):
 
 #def shortest_remaining_time(processes):
 def shortest_remaining_time(processes):
-    processes_copy = copy.deepcopy(processes)
-    processes_copy = sorted(processes_copy, key=lambda x: x.arrival_time)
+    
 
-    io_context = 0
-    cpu_context = 0
-
-    cpu_turnaround = []
-    io_turnaround = []
-
-    cpu_wait = []
-    io_wait = []
-
-    queue = []
-    time = 0
-    running = []
-
-    print(f"time 0ms: Simulator started for SRT ",end="")
-    print_queue(queue)
-
-    while len(processes_copy) != 0:
-
-        for process in processes_copy:
-            if process.arrival_time <= time:
-                queue.append(process)
-                processes_copy.remove(process)
-                print(f"time {time}ms: Process {process.process_id} arrived and added to ready queue ",end="")
-                print_queue(queue)
-
-        time += 1
-
-        if len(running) == 0 and len(queue) != 0:
-            running = min(queue, key=lambda x: x.burst_time)
-            queue.remove(running)
-            running.burst_start = time
-            print(f"time {time}ms: Process {running.process_id} started using the CPU ",end="")
-            print_queue(queue)
-
-        if len(running)!=0:
-            running.burst_time -= 1
-
-            if running.burst_time == 0:
-                if running.cpu:
-                    cpu_turnaround.append(time - running.burst_start)
-                    cpu_wait.append(time - running.arrival_time - sum(running.cpu_bursts) - sum(running.io_bursts))
-                    cpu_context += 1
-                else:
-                    io_turnaround.append(time - running.burst_start)
-                    io_wait.append(time - running.arrival_time - sum(running.cpu_bursts) - sum(running.io_bursts))
-                    io_context += 1
-
-                if running.current_burst < len(running.cpu_bursts):
-                    running.blocked = running.io_bursts[running.current_burst]
-                    running.current_burst += 1
-                    print(f"time {time}ms: Process {running.process_id} completed a CPU burst; {running.bursts - running.current_burst} bursts to go ",end="")
-                    print_queue(queue)
-                else:
-                    print(f"time {time}ms: Process {running.process_id} terminated ",end="")
-                    print_queue(queue)
-                running = []
-
-        for process in queue:
-            process.arrival_queue += 1
-
-    print(f"time {time}ms: Simulator ended for SRT ", end="")
-    print_queue(queue)
-
-    simout_write("SRT",processes,time,cpu_turnaround,io_turnaround,cpu_wait,io_wait,cpu_context,io_context,0,0)
-def shortest_job_first(processes):
+   def shortest_job_first(processes):
     
     processes_copy = copy.deepcopy(processes)
     processes_copy = sorted(processes_copy, key=lambda x: x.arrival_time)
