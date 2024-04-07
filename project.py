@@ -20,6 +20,7 @@ class Process:
         self.burst_start = 0
         self.preemps = 1
         self.arrival_queue = self.arrival_time
+        self.remaining_time = self.cpu_bursts[0]
     
 class Rand(object):
     def __init__(self, seed):
@@ -140,7 +141,6 @@ def calculate_tau(alpha, burst_time, prev_tau):
     tau = c_float(alpha * burst_time) + prev_tau * c_float(1 - alpha)
     return math.ceil(tau)
 
-
 def simout_write(alg,processes,time,cpu_turnaround,io_turnaround,cpu_wait,io_wait,cpu_context,io_context,cpu_preemp,io_preemp):
     """function to calculate measurements and write to simout...call at the end of each scheduling algorithm
 
@@ -203,7 +203,14 @@ def first_come_first_serve(processes):
     queue = []
     time = 0
     running = []
+    io_context = 0
+    cpu_context = 0
     
+    cpu_turnaround = []
+    io_turnaround = []
+    
+    cpu_wait = []
+    io_wait = []
 
     old = Process(".",1,1,[0],[0],False,1)
     
@@ -251,7 +258,7 @@ def first_come_first_serve(processes):
             elif time == (running[0].burst_start+running[0].cpu_bursts[running[0].current_burst]):
                 running[0].current_burst += 1
                 if time < 10000:
-                    print(f"time {time}ms: Process {running[0].process_id} completed a CPU burst; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
+                    print(f"time {time}ms: Process {running[0].process_id} completed a CPU bursts; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
                     print_queue(queue)
                     print(f"time {time}ms: Process {running[0].process_id} switching out of CPU; blocking on I/O until time {int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))}ms ",end="")
                     print_queue(queue)
@@ -259,6 +266,14 @@ def first_come_first_serve(processes):
 
                 old = running.pop(0)
                 time += int(t_cs/2)
+                if old.cpu:
+                    cpu_turnaround.append((time+(t_cs))-old.arrival_queue)
+                    cpu_wait.append((cpu_turnaround[-1]-t_cs)-old.cpu_bursts[old.current_burst-1])
+                    cpu_context += 1
+                else:
+                    io_turnaround.append((time+(t_cs))-old.arrival_queue)
+                    io_wait.append((io_turnaround[-1]-t_cs)-old.cpu_bursts[old.current_burst-1])
+                    io_context += 1
 
             for process in io_blocked:
                 if process[1] == time:
@@ -276,42 +291,17 @@ def first_come_first_serve(processes):
                         print(f"time {time}ms: Process {process[0].process_id} completed I/O; added to ready queue ",end="")
                         print_queue(queue)
                     io_blocked.remove(process)
-        '''
-        if old.cpu:
-            cpu_turnaround.append((time+(t_cs))-old.arrival_queue)
-            cpu_wait.append((cpu_turnaround[-1]-t_cs)-old.cpu_bursts[old.current_burst-1])
-            cpu_context += 1
-            
-        else:
-            io_turnaround.append((time+(t_cs))-old.arrival_queue)
-            io_wait.append((io_turnaround[-1]-t_cs)-old.cpu_bursts[old.current_burst-1])
-            io_context += 1
-        continue 
-        '''
+        
+         
+        
     time += int(t_cs/2)
     print(f"time {time}ms: Simulator ended for FCFS ", end="")
     print_queue(queue)
 
-def shortest_remaining_time(processes):
-    '''
-    for process in processes_copy:
-        print(process.process_id)
-        print(f"ARRIVAL {process.arrival_time}\n")
-        print(f"Burst Time {process.burst_time}\n")
-        print(f"CPU Bursts {process.cpu_bursts}\n")
-        print(f"IO Bursts {process.io_bursts}\n")
-        print(process.cpu)
-        print(process.tau)
-        print(f"OG Burst {process.og_burst}\n")
-        print(process.og_burst)
-        print(process.blocked)
-        print(process.current_burst)
-        print(process.burst_start)
-        print(process.preemps)
-        print(process.arrival_queue)
-        print("\n")
-   '''
+    simout_write("FCFS",processes,time,cpu_turnaround,io_turnaround,cpu_wait,io_wait,cpu_context,io_context,0,0)
 
+'''IGNORE THIS FUNCTION'''
+def hortest_remaining_tiwme(processes):
     processes_copy = copy.deepcopy(processes)
     processes_copy = sorted(processes_copy, key=lambda x: x.arrival_time)
     
@@ -331,9 +321,14 @@ def shortest_remaining_time(processes):
     time = 0
     running = []
 
+    old = Process(".",1,1,[0],[0],False,1)
+    last_started = Process(".",1,1,[0],[0],False,1)
+
     #sort processes by arrival time
+
     def srt_sort(item):
         return (item.tau, item.process_id)
+    
     '''
     #Premption
     remaining_time = time-running[0].cpu_bursts[running[0].current_burst]
@@ -352,25 +347,34 @@ def shortest_remaining_time(processes):
     
     print(f"time 0ms: Simulator started for SRT ",end="")
     print_queue(queue)
-#running[0].blocked = int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))
-                    
+                 
     while len(processes_copy) != 0:
         for process in processes_copy:
             if process.arrival_time == time and process not in queue and process not in running:
                 if process.blocked >= 0 and process.blocked <= time:
                     queue.append(process)
-                    if time < 10000:
-                        print(f"time {time}ms: Process {process.process_id} (tau {process.tau}) completed I/O; added to ready queue ",end="")
+                    if time > 20000 and time <30000:
+                        print(f"time {time}ms: Process {process.process_id} (tau {process.tau}ms) completed I/O; added to ready queue ",end="")
                         print_queue(queue)
                     process.arrival_queue = time
                 else:
                     queue.append(process)
-                    if time < 10000:
-                        print(f"time {time}ms: Process {process.process_id} (tau {process.tau}) arrived; added to ready queue ",end="")
-                        print_queue(queue)
+                    new = process
+                    if time > 20000 and time <30000:
+                        print(f"time {time}ms: Process {process.process_id} (tau {process.tau}ms) arrived; added to ready queue ",end="")
+                    if len(running) != 0 and len(queue) != 0:
+                        if running[0].tau > new.tau and running[0].process_id != new.process_id:
+                            print("TOP Prempt time!!")
+                            premptions += 1
+                            print_queue(queue)
+                            queue.sort(key = srt_sort)
+                            old = running.pop(0)
+                            old.cpu = False
+                            running.append(new)
+                            running[0].cpu = True
+                    print_queue(queue)
                     process.arrival_queue = time       
-        time += 1
-        #If no process is running and the queue is not empty
+        time += 1        
         if len(running) == 0 and len(queue) != 0:
             time -= 1
             time += int(t_cs/2)
@@ -379,8 +383,9 @@ def shortest_remaining_time(processes):
             running[0].cpu = True
             running[0].blocked = int(running[0].io_bursts[running[0].current_burst]+time+(t_cs/2))
             start_times.append([time,running[0]])
-            if time < 10000:
-                print(f"time {time}ms: Process {running[0].process_id} (tau {process.tau}) started using the CPU for {running[0].cpu_bursts[running[0].current_burst]}ms burst ",end="")
+            last_started = running[0]
+            if time > 20000 and time <30000:
+                print(f"BEGtime {time}ms: Process {running[0].process_id} (tau {running[0].tau}ms) started using the CPU for {running[0].cpu_bursts[running[0].current_burst]}ms burst ",end="")
                 print_queue(queue)
         
         #If a process is running
@@ -393,32 +398,77 @@ def shortest_remaining_time(processes):
 
             elif time == (running[0].burst_start+running[0].cpu_bursts[running[0].current_burst]):
                 running[0].current_burst += 1
-                if time < 10000:
-                    print(f"time {time}ms: Process {running[0].process_id} (tau {running[0].tau}) completed a CPU burst; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
+                if time > 20000 and time <30000:
+                    print(f"RUNtime {time}ms: Process {running[0].process_id} (tau {running[0].tau}ms) completed a CPU burst; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
                     print_queue(queue)
-                    '''MY VER
-                    running[0].tau = calculate_tau(alpha, running[0].cpu_bursts[running[0].current_burst],running[0].tau)
-                    running[0].blocked = int(running[0].io_bursts[running[0].current_burst]+time+(t_cs/2))
-                    
-                    '''
                     print(f"time {time}ms: Recalculating tau for process {running[0].process_id}: old tau {running[0].tau}ms ==> new tau {calculate_tau(alpha, running[0].cpu_bursts[running[0].current_burst-1],running[0].tau)}ms",end ="")
+                    print_queue(queue)
                     print(f"time {time}ms: Process {running[0].process_id} switching out of CPU; blocking on I/O until time {int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))}ms ",end="")
                     print_queue(queue)
-                    running[0].tau = calculate_tau(alpha, running[0].cpu_bursts[running[0].current_burst-1],running[0].tau)
-                
+                temp = calculate_tau(alpha, running[0].cpu_bursts[running[0].current_burst-1],running[0].tau)                 
+                running[0].tau =  temp
+
                 running[0].blocked = int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))
                 io_blocked.append([running[0],int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))])
 
                 old = running.pop(0)
                 time += int(t_cs/2)
 
+                if old.cpu:
+                    cpu_turnaround.append((time+(t_cs))-old.arrival_queue)
+                    cpu_wait.append((cpu_turnaround[-1]-t_cs)-old.cpu_bursts[old.current_burst-1])
+                    cpu_context += 1
+                else:
+                    io_turnaround.append((time+(t_cs))-old.arrival_queue)
+                    io_wait.append((io_turnaround[-1]-t_cs)-old.cpu_bursts[old.current_burst-1])
+                    io_context += 1
+
             for process in io_blocked:
                 if process[1] == time:
                     queue.append(process[0])
                     queue.sort(key = srt_sort)
-                    if time < 10000:
-                        print(f"time {time}ms: Process {process[0].process_id} completed I/O; added to ready queue ",end="")
+                    if process[0].tau < last_started.tau and process[0].process_id != last_started.process_id:
+                        print(f"{process[0].process_id} {process[0].tau} || {last_started.process_id} {last_started.tau}")
+                        #if time > 20000 and time <30000:
+                        print(f"BLOC3time {time}ms: Process {process[0].process_id} (tau {process[0].tau}ms) completed I/O; preempting {last_started.process_id} ",end="")
                         print_queue(queue)
+
+                        print("INside prempt before queue")
+                        for r in running:
+                            print(r.process_id)
+                        print("After prempt before queue")
+                        running.append(process[0])
+                        for r in running:
+                            print(r.process_id)
+                        #queue.pop(0)
+                        
+                        #queue.append(last_started)
+                        #queue.sort(key = srt_sort)
+                        #running.append(process[0])
+                        print_queue(queue)
+                        break
+
+                       # old = running.pop(0)
+                        #old.cpu = False
+                        #running.append(process[0])
+                        #running[0].cpu = True
+                        
+                        premptions += 1
+                        #old = running.pop(0)
+                        #old.cpu = False
+                        #running.append(process[0])
+
+                        #running.append(process[0])
+                        #running[0].cpu = True
+                        #queue.remove(process[0])
+                        #queue.append(last_started)
+                    
+
+                    else:          
+                        if time > 20000 and time <30000:
+                            print(f"BLOC1time {time}ms: Process {process[0].process_id} (tau {process[0].tau}ms) completed I/O; added to ready queue ",end="")
+                            print_queue(queue)
+
                     running[0].blocked = 0
                     io_blocked.remove(process)
 
@@ -426,9 +476,9 @@ def shortest_remaining_time(processes):
             for process in io_blocked:
                 if process[1] == time:
                     queue.append(process[0])
-                    queue.sort(key = srt_sort)
-                    if time < 10000:
-                        print(f"time {time}ms: Process {process[0].process_id} completed I/O; added to ready queue ",end="")
+                    #queue.sort(key = srt_sort)
+                    if time > 20000 and time <30000:
+                        print(f"BLOC2time {time}ms: Process {process[0].process_id} (tau {process[0].tau}ms) completed I/O; added to ready queue ",end="")
                         print_queue(queue)
                     io_blocked.remove(process)
 
@@ -438,7 +488,179 @@ def shortest_remaining_time(processes):
     print_queue(queue)
 
     simout_write("SRT",processes,time,cpu_turnaround,io_turnaround,cpu_wait,io_wait,cpu_context,io_context,0,0)
+
+def shortest_remaining_time(processes):
+    def srt_sort(item):
+        return (item.tau, item.process_id)
     
+    def preempt(running,queue,time):
+        if running[0].remaining_time < queue[0].tau:
+            running[0].remaining_time = 
+            
+            
+            running[0].remaining_time - 
+            
+            
+            (time - running[0].burst_start)
+            running[0].blocked = time
+            queue[0].blocked = time
+            queue.append(running[0])
+            queue.sort(key = srt_sort)
+            running.pop(0)
+            running.append(queue.pop(0))
+            running[0].cpu = True
+            return True
+        return False
+      
+    processes_copy = copy.deepcopy(processes)
+    processes_copy = sorted(processes_copy, key=lambda x: x.arrival_time)
+    
+    io_queue = []
+    
+    io_context = 0
+    cpu_context = 0
+    
+    cpu_turnaround = []
+    io_turnaround = []
+    
+    cpu_wait = []
+    io_wait = []
+    
+    queue = []
+    time = 0
+    running = []
+    
+    print(f"time 0ms: Simulator started for SRT ",end="")
+    print_queue(queue)
+
+
+    while len(processes_copy) != 0:
+            
+        if len(running)!=0:
+            
+            if time == (running[0].burst_start+running[0].cpu_bursts[running[0].current_burst]):
+                running[0].current_burst += 1
+                
+                if running[0].current_burst >= running[0].burst_time:
+                    
+                    print(f"time {time}ms: Process {running[0].process_id} terminated ",end="")
+                    print_queue(queue)
+                    
+                    processes_copy.remove(running[0])
+                    old = running.pop(0)
+                    
+                    if len(queue) > 0:
+                        queue[0].blocked=time+t_cs
+                else:
+                    if time <= 11999:
+                        if (running[0].burst_time-running[0].current_burst) != 1:
+                            
+                            print(f"time {time}ms: Process {running[0].process_id} (tau {running[0].tau}ms) completed a CPU burst; {running[0].burst_time-running[0].current_burst} bursts to go ",end="")
+                        
+                        else:
+                            
+                            print(f"time {time}ms: Process {running[0].process_id} (tau {running[0].tau}ms) completed a CPU burst; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
+                        
+                        print_queue(queue)
+                        
+                        print(f"time {time}ms: Recalculating tau for process {running[0].process_id}: old tau {running[0].tau}ms ==> new tau {calculate_tau(alpha, running[0].cpu_bursts[running[0].current_burst-1],running[0].tau)}ms ",end = "")
+                        print_queue(queue)
+                    
+                    running[0].tau = calculate_tau(alpha, running[0].cpu_bursts[running[0].current_burst-1],running[0].tau)
+                    running[0].blocked = int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))
+                    
+                    if time <= 11999:
+                        print(f"time {time}ms: Process {running[0].process_id} switching out of CPU; blocking on I/O until time {running[0].blocked}ms ",end="")
+                        print_queue(queue)
+                        
+                    
+                    old = running.pop(0)
+                    io_queue.append(old)
+                    
+                    if len(queue)>0:
+                        queue[0].blocked=time+t_cs
+                    
+                if old.cpu:
+                    cpu_turnaround.append((time+t_cs)-old.arrival_queue)
+                    cpu_wait.append((cpu_turnaround[-1]-(t_cs))-old.cpu_bursts[old.current_burst-1])
+                    cpu_context += 1
+                    
+                else:
+                    io_turnaround.append((time+t_cs)-old.arrival_queue)
+                    io_wait.append((io_turnaround[-1]-(t_cs))-old.cpu_bursts[old.current_burst-1])
+                    io_context += 1
+                continue
+        if len(running) == 0 and len(queue) != 0 and time == queue[0].blocked:
+            queue[0].burst_start = time
+            running.append(queue.pop(0))
+
+            if time <= 11999:
+                print(f"time {time}ms: Process {running[0].process_id} (tau {running[0].tau}ms) started using the CPU for {running[0].cpu_bursts[running[0].current_burst]}ms burst ",end="")
+                print_queue(queue)
+            
+        for process in processes_copy: #check if any process needs to be added to ready queue
+            if process.blocked == time and process not in io_queue and process not in queue and process not in running:
+                    queue.append(process)
+                    queue.sort(key = srt_sort)
+                    continue
+        rem = []
+        io_queue.sort(key = lambda x: x.process_id)
+        for process in io_queue:
+            if process not in queue and process not in running:
+                if process.blocked == time:
+                    #preempt here
+                    process.arrival_queue = time+(t_cs/2)
+                    process.blocked = time + (t_cs/2)
+                    queue.append(process)
+                    queue.sort(key = srt_sort)
+
+
+                    if time <= 11999:
+                        print(f"time {time}ms: Process {process.process_id} (tau {process.tau}ms) completed I/O; added to ready queue ",end="")
+                    if len(queue) > 1 and len(running) == 0 and queue[0].process_id != process.process_id:
+                        if time <= 11999:
+                            print_queue(queue[1:])
+                        
+
+
+                    elif len(queue) > 1 and len(running) == 0 and queue[0].process_id == process.process_id:
+                        if time <= 11999:
+                            
+                            print(f"mm {queue[0].process_id}:{queue[0].blocked}, {queue[1].process_id}:{queue[1].blocked}")
+                    
+                            print_queue(queue)
+                        
+                        if queue[1].blocked > queue[0].blocked + t_cs / 2:
+                            queue[0], queue[1] = queue[1], queue[0]
+                        elif queue[1].blocked > queue[0].blocked:
+                            queue[0].blocked = queue[1].blocked
+                        elif queue[0].blocked > queue[1].blocked:
+                            queue[0], queue[1] = queue[1], queue[0]
+                    else:
+                        if time <= 11999:
+                            print_queue(queue)
+                    rem.append(process)
+        for p in rem: io_queue.remove(p)  
+        for process in processes_copy: #check if any process needs to be added to ready queue
+            #preempt here
+            if process.arrival_time == time and process not in queue and process not in running:
+                process.arrival_queue = time+(t_cs/2)
+                process.blocked = time+(t_cs/2)
+                process.tau = int(1/lamb)
+                process.remaining_time = process.cpu_bursts[0]
+                queue.append(process)
+                queue.sort(key = srt_sort)
+                print(f"time {time}ms: Process {process.process_id} (tau {queue[-1].tau}ms) arrived; added to ready queue ",end="")
+                print_queue(queue)            
+        time += 1
+
+        
+    time += int(t_cs/2)                 
+    print(f"time {time}ms: Simulator ended for SRT ", end="")
+    print_queue(queue)
+
+    simout_write("SRT",processes,time,cpu_turnaround,io_turnaround,cpu_wait,io_wait,cpu_context,io_context,0,0)    
+
 def shortest_job_first(processes):
     def sjf_sort(item):
         return (item.tau, item.process_id)
@@ -554,6 +776,7 @@ def shortest_job_first(processes):
                             print(f"mm {queue[0].process_id}:{queue[0].blocked}, {queue[1].process_id}:{queue[1].blocked}")
                     
                             print_queue(queue)
+                        
                         if (queue[1].blocked > queue[0].blocked) and (queue[1].blocked - queue[0].blocked) > (t_cs/2):
                             queue[0],queue[1] = queue[1],queue[0]
                         elif (queue[1].blocked > queue[0].blocked):
@@ -625,6 +848,7 @@ def round_robin(processes):
                 running[0].burst_start = time
                 running[0].cpu_bursts[running[0].current_burst]-=t_slice
             
+            
             if time == (running[0].burst_start+running[0].cpu_bursts[running[0].current_burst]):
                 
                 #time = int(running[0].burst_start+running[0].cpu_bursts[running[0].current_burst])
@@ -677,6 +901,7 @@ def round_robin(processes):
                     io_wait.append((io_turnaround[-1]-(t_cs*old.preemps))-old.og_burst)
                     io_context += 1
                 continue
+            
             if time == (running[0].burst_start+t_slice) and len(queue) != 0: #if a process has been running for the designated quantum, remove from running and add back to ready queue
                 
                 #time = (running[0].burst_start+t_slice)
@@ -804,8 +1029,7 @@ if __name__ == '__main__':
     simout = open("simout.txt", "w")
 
     print(f"\n<<< PROJECT PART II -- t_cs={t_cs}ms; alpha={alpha}; t_slice={t_slice}ms >>>")
-
-    first_come_first_serve(procs)
-    shortest_job_first(procs)
+    #first_come_first_serve(procs)
+    #shortest_job_first(procs)
     shortest_remaining_time(procs)
-    round_robin(procs)
+    #round_robin(procs)
