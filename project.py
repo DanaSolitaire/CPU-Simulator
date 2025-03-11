@@ -212,7 +212,7 @@ def first_come_first_serve(processes):
     cpu_wait = []
     io_wait = []
 
-    old = Process(".",1,1,[0],[0],False,1)
+    #old = Process(".",1,1,[0],[0],False,1)
     
     print(f"time 0ms: Simulator started for FCFS ",end="")
     print_queue(queue)
@@ -223,29 +223,41 @@ def first_come_first_serve(processes):
             if process.arrival_time == time and process not in queue and process not in running:
                 if process.blocked >= 0 and process.blocked <= time:
                     queue.append(process)
-                    if time < 10000:
+                    if time <= 9999:
                         print(f"time {time}ms: Process {process.process_id} completed I/O; added to ready queue ",end="")
                         print_queue(queue)
-                    process.arrival_queue = time
                 else:
+                    #process.arrival_queue = time + (t_cs/2)
                     queue.append(process)
-                    if time < 10000:
+                    if time <= 9999:
                         print(f"time {time}ms: Process {process.process_id} arrived; added to ready queue ",end="")
                         print_queue(queue)
-                    process.arrival_queue = time       
+                process.arrival_queue = time    
         time += 1
         #If no process is running and the queue is not empty
+
+
+        if len(running) == 0 and len(queue) == 0:
+            for process in io_blocked:
+                if process[1] == time:
+                    queue.append(process[0])
+                    process[0].arrival_queue = time
+                    if time <= 9999:
+                        print(f"time {time}ms: Process {process[0].process_id} completed I/O; added to ready queue ",end="")
+                        print_queue(queue)
+                    io_blocked.remove(process)
+        
         if len(running) == 0 and len(queue) != 0:
             time -= 1
             time += int(t_cs/2)
             queue[0].burst_start = time
             running.append(queue.pop(0))
-            running[0].cpu = True
             running[0].blocked = int(running[0].io_bursts[running[0].current_burst]+time+(t_cs/2))
             start_times.append([time,running[0]])
-            if time < 10000:
+            if time <= 9999:
                 print(f"time {time}ms: Process {running[0].process_id} started using the CPU for {running[0].cpu_bursts[running[0].current_burst]}ms burst ",end="")
                 print_queue(queue)
+
         
         #If a process is running
         if len(running)!=0:
@@ -257,8 +269,8 @@ def first_come_first_serve(processes):
 
             elif time == (running[0].burst_start+running[0].cpu_bursts[running[0].current_burst]):
                 running[0].current_burst += 1
-                if time < 10000:
-                    print(f"time {time}ms: Process {running[0].process_id} completed a CPU bursts; {running[0].burst_time-running[0].current_burst} burst to go ",end="")
+                if time <= 9999:
+                    print(f"time {time}ms: Process {running[0].process_id} completed a CPU bursts {running[0].burst_time-running[0].current_burst} burst to go ",end="")
                     print_queue(queue)
                     print(f"time {time}ms: Process {running[0].process_id} switching out of CPU; blocking on I/O until time {int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))}ms ",end="")
                     print_queue(queue)
@@ -266,6 +278,7 @@ def first_come_first_serve(processes):
 
                 old = running.pop(0)
                 time += int(t_cs/2)
+
                 if old.cpu:
                     cpu_turnaround.append((time+(t_cs))-old.arrival_queue)
                     cpu_wait.append((cpu_turnaround[-1]-t_cs)-old.cpu_bursts[old.current_burst-1])
@@ -278,7 +291,8 @@ def first_come_first_serve(processes):
             for process in io_blocked:
                 if process[1] == time:
                     queue.append(process[0])
-                    if time < 10000:
+                    process[0].arrival_queue = time
+                    if time <= 9999:
                         print(f"time {time}ms: Process {process[0].process_id} completed I/O; added to ready queue ",end="")
                         print_queue(queue)
                     io_blocked.remove(process)
@@ -287,18 +301,20 @@ def first_come_first_serve(processes):
             for process in io_blocked:
                 if process[1] == time:
                     queue.append(process[0])
-                    if time < 10000:
+                    process[0].arrival_queue = time
+                    if time <= 9999:
                         print(f"time {time}ms: Process {process[0].process_id} completed I/O; added to ready queue ",end="")
                         print_queue(queue)
                     io_blocked.remove(process)
-        
-         
         
     time += int(t_cs/2)
     print(f"time {time}ms: Simulator ended for FCFS ", end="")
     print_queue(queue)
 
     simout_write("FCFS",processes,time,cpu_turnaround,io_turnaround,cpu_wait,io_wait,cpu_context,io_context,0,0)
+
+def first_come_first_serve(processes)
+
 
 '''IGNORE THIS FUNCTION'''
 def hortest_remaining_tiwme(processes):
@@ -495,10 +511,10 @@ def shortest_remaining_time(processes):
     
     def preempt(running,queue,time):
         if running[0].remaining_time < queue[0].tau:
-            running[0].remaining_time = 
+            #running[0].remaining_time = 
             
             
-            running[0].remaining_time - 
+            #running[0].remaining_time - 
             
             
             (time - running[0].burst_start)
@@ -552,7 +568,7 @@ def shortest_remaining_time(processes):
                     if len(queue) > 0:
                         queue[0].blocked=time+t_cs
                 else:
-                    if time <= 11999:
+                    if time <= 9999:
                         if (running[0].burst_time-running[0].current_burst) != 1:
                             
                             print(f"time {time}ms: Process {running[0].process_id} (tau {running[0].tau}ms) completed a CPU burst; {running[0].burst_time-running[0].current_burst} bursts to go ",end="")
@@ -569,7 +585,7 @@ def shortest_remaining_time(processes):
                     running[0].tau = calculate_tau(alpha, running[0].cpu_bursts[running[0].current_burst-1],running[0].tau)
                     running[0].blocked = int(running[0].io_bursts[running[0].current_burst-1]+time+(t_cs/2))
                     
-                    if time <= 11999:
+                    if time <= 9999:
                         print(f"time {time}ms: Process {running[0].process_id} switching out of CPU; blocking on I/O until time {running[0].blocked}ms ",end="")
                         print_queue(queue)
                         
@@ -594,7 +610,7 @@ def shortest_remaining_time(processes):
             queue[0].burst_start = time
             running.append(queue.pop(0))
 
-            if time <= 11999:
+            if time <= 9999:
                 print(f"time {time}ms: Process {running[0].process_id} (tau {running[0].tau}ms) started using the CPU for {running[0].cpu_bursts[running[0].current_burst]}ms burst ",end="")
                 print_queue(queue)
             
@@ -615,16 +631,16 @@ def shortest_remaining_time(processes):
                     queue.sort(key = srt_sort)
 
 
-                    if time <= 11999:
+                    if time <= 9999:
                         print(f"time {time}ms: Process {process.process_id} (tau {process.tau}ms) completed I/O; added to ready queue ",end="")
                     if len(queue) > 1 and len(running) == 0 and queue[0].process_id != process.process_id:
-                        if time <= 11999:
+                        if time <= 9999:
                             print_queue(queue[1:])
                         
 
 
                     elif len(queue) > 1 and len(running) == 0 and queue[0].process_id == process.process_id:
-                        if time <= 11999:
+                        if time <= 9999:
                             
                             print(f"mm {queue[0].process_id}:{queue[0].blocked}, {queue[1].process_id}:{queue[1].blocked}")
                     
@@ -637,7 +653,7 @@ def shortest_remaining_time(processes):
                         elif queue[0].blocked > queue[1].blocked:
                             queue[0], queue[1] = queue[1], queue[0]
                     else:
-                        if time <= 11999:
+                        if time <= 9999:
                             print_queue(queue)
                     rem.append(process)
         for p in rem: io_queue.remove(p)  
@@ -705,7 +721,7 @@ def shortest_job_first(processes):
                 else:
                     if time <= 9999:
                         if (running[0].burst_time-running[0].current_burst) != 1:
-                            
+        
                             print(f"time {time}ms: Process {running[0].process_id} (tau {running[0].tau}ms) completed a CPU burst; {running[0].burst_time-running[0].current_burst} bursts to go ",end="")
                         
                         else:
@@ -1029,7 +1045,9 @@ if __name__ == '__main__':
     simout = open("simout.txt", "w")
 
     print(f"\n<<< PROJECT PART II -- t_cs={t_cs}ms; alpha={alpha}; t_slice={t_slice}ms >>>")
-    #first_come_first_serve(procs)
-    #shortest_job_first(procs)
+    
+    
+    first_come_first_serve(procs)
+    shortest_job_first(procs)
     shortest_remaining_time(procs)
-    #round_robin(procs)
+    round_robin(procs)
